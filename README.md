@@ -4,7 +4,7 @@ Extended library of [gonum/matrix](https://github.com/gonum/matrix)
 
 ## Under construction
 
-Plan to implement some usefull method below
+I plan to implement some usefull methods below.
 
 ```
 Equals
