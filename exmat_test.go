@@ -191,3 +191,32 @@ func TestIm2Col(t *testing.T) {
 		t.Log(res)
 	}
 }
+
+func TestConvolve2d(t *testing.T) {
+	m := NewExMat(5, 5, []float64{
+		1, 1, 1, 0, 0,
+		0, 1, 1, 1, 0,
+		0, 0, 1, 1, 1,
+		0, 0, 1, 1, 0,
+		0, 1, 1, 0, 0,
+	})
+	f := NewExMat(3, 3, []float64{
+		1, 0, 1,
+		0, 1, 0,
+		1, 0, 1,
+	})
+	ans := NewExMat(3, 3, []float64{
+		4, 3, 4,
+		2, 4, 3,
+		2, 3, 4,
+	})
+	err := m.Convolve2d(1, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !m.Equals(ans) {
+		t.Error("not same")
+		t.Log(m)
+	}
+}

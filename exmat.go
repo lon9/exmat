@@ -34,6 +34,13 @@ func NewExMat(r, c int, src []float64) *ExMat {
 	}
 }
 
+// NewExMatFromDense make ExMat from mat64.Dense
+func NewExMatFromDense(dense *mat64.Dense) *ExMat {
+	return &ExMat{
+		dense,
+	}
+}
+
 // Random generates random ExMat.
 func Random(r, c int) *ExMat {
 	rand.Seed(time.Now().UnixNano())
@@ -56,6 +63,18 @@ func Zeros(r, c int) *ExMat {
 		}
 	}
 	return NewExMat(r, c, res)
+}
+
+// GetRow returns the number of rows.
+func (emat *ExMat) GetRow() int {
+	r, _ := emat.Dims()
+	return r
+}
+
+// GetCol returns the number of cols.
+func (emat *ExMat) GetCol() int {
+	_, c := emat.Dims()
+	return c
 }
 
 func (emat *ExMat) String() string {
@@ -124,27 +143,12 @@ func (emat *ExMat) Reshape(r, c int, src *ExMat) (err error) {
 }
 
 func maxPool(m mat64.Matrix) float64 {
-	r, c := m.Dims()
-	max := m.At(0, 0)
-	for y := 0; y < r; y++ {
-		for x := 0; x < c; x++ {
-			if max < m.At(y, x) {
-				max = m.At(y, x)
-			}
-		}
-	}
-	return max
+	return mat64.Max(m)
 }
 
 func avgPool(m mat64.Matrix) float64 {
 	r, c := m.Dims()
-	sum := 0.0
-	for y := 0; y < r; y++ {
-		for x := 0; x < c; x++ {
-			sum += m.At(y, x)
-		}
-	}
-	return sum / float64(r*c)
+	return mat64.Sum(m) / float64(r*c)
 }
 
 func (emat *ExMat) execPool(newMat []float64, y, rows, cols, k, s int, mode PoolingMode, wg *sync.WaitGroup) {
@@ -269,4 +273,24 @@ func (emat *ExMat) Im2Col(k, s int) *ExMat {
 	}
 	wg.Wait()
 	return NewExMat(rows*cols, colSize, res)
+}
+
+// Convolve2d convolves ExMat.
+func (emat *ExMat) Convolve2d(s int, f *ExMat) (err error) {
+	fr, fc := f.Dims()
+	if fr != fc {
+		return fmt.Errorf("Dimension mismatch %d, %d", fr, fc)
+	}
+	r, c := emat.Dims()
+	rows := (r-fr)/s + 1
+	cols := (c-fc)/s + 1
+	in := emat.Im2Col(fr, s)
+	flat := f.Flatten()
+	var out mat64.Dense
+	out.Mul(flat, in.T())
+	exOut := NewExMatFromDense(&out)
+	if err = emat.Reshape(rows, cols, exOut); err != nil {
+		return
+	}
+	return nil
 }
