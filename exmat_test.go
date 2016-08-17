@@ -1,8 +1,6 @@
 package exmat
 
 import (
-	"bytes"
-	"strconv"
 	"testing"
 )
 
@@ -19,6 +17,17 @@ func TestInitializer(t *testing.T) {
 	}
 	if m.At(1, 1) != 4 {
 		t.Error("not same")
+	}
+}
+
+func TestString(t *testing.T) {
+	m := NewExMat(2, 2, []float64{
+		1, 2, 3, 4,
+	})
+	ans := "1.0000 2.0000 \n3.0000 4.0000 \n"
+	if m.String() != ans {
+		t.Error("not same")
+		t.Log(m.String())
 	}
 }
 
@@ -58,21 +67,8 @@ func TestReshape(t *testing.T) {
 
 	if !res.Equals(ans) {
 		t.Errorf("Not same.")
-		t.Log(showExMat(&res))
+		t.Log(res)
 	}
-}
-
-func showExMat(emat *ExMat) string {
-	var w bytes.Buffer
-	r, c := emat.Dims()
-	for i := 0; i < r; i++ {
-		for j := 0; j < c; j++ {
-			w.WriteString(strconv.FormatFloat(emat.At(i, j), 'f', 4, 64))
-			w.WriteString(", ")
-		}
-		w.WriteString("\n")
-	}
-	return w.String()
 }
 
 func TestPooling(t *testing.T) {
@@ -98,7 +94,7 @@ func TestPooling(t *testing.T) {
 
 	if !res1.Equals(ans1) {
 		t.Error("Not same")
-		t.Log(showExMat(&res1))
+		t.Log(res1)
 	}
 
 	t.Log("Test for average pooling.")
@@ -107,7 +103,7 @@ func TestPooling(t *testing.T) {
 
 	if !res2.Equals(ans2) {
 		t.Error("Not same")
-		t.Log(showExMat(&res2))
+		t.Log(res2)
 	}
 }
 
@@ -117,15 +113,81 @@ func TestEdgePad(t *testing.T) {
 		1, 1, 1, 1,
 		1, 1, 1, 1,
 	})
-	ans := NewExMat(4, 5, []float64{
-		1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1,
+	ans := NewExMat(5, 6, []float64{
+		1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1,
 	})
-	var res ExMat
-	res.EdgePadding(1, m1)
+	res := m1.EdgePadding(1)
 	if !res.Equals(ans) {
 		t.Error("not same")
+		t.Log(res)
+	}
+}
+
+func TestFlatten(t *testing.T) {
+	m1 := NewExMat(3, 4, []float64{
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+	})
+
+	ans1 := NewExMat(1, 12, []float64{
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	})
+
+	f1 := m1.Flatten()
+	if !ans1.Equals(f1) {
+		t.Error("Not same")
+		t.Log(f1)
+	}
+
+	m2 := NewExMat(3, 6, []float64{
+		1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1,
+		2, 2, 2, 2, 2, 2,
+	})
+
+	ans2 := NewExMat(1, 18, []float64{
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2,
+	})
+
+	f2 := m2.Flatten()
+
+	if !ans2.Equals(f2) {
+		t.Error("Not same")
+		t.Log(f2)
+	}
+}
+
+func TestIm2Col(t *testing.T) {
+	m := NewExMat(7, 7, []float64{
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 2, 0, 0, 1, 0,
+		0, 1, 2, 0, 0, 1, 0,
+		0, 2, 2, 1, 2, 2, 0,
+		0, 0, 0, 1, 2, 1, 0,
+		0, 2, 1, 1, 1, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+	})
+
+	a := NewExMat(9, 9, []float64{
+		0, 0, 0, 0, 0, 2, 0, 1, 2,
+		0, 0, 0, 2, 0, 0, 2, 0, 0,
+		0, 0, 0, 0, 1, 0, 0, 1, 0,
+		0, 1, 2, 0, 2, 2, 0, 0, 0,
+		2, 0, 0, 2, 1, 2, 0, 1, 2,
+		0, 1, 0, 2, 2, 0, 2, 1, 0,
+		0, 0, 0, 0, 2, 1, 0, 0, 0,
+		0, 1, 2, 1, 1, 1, 0, 0, 0,
+		2, 1, 0, 1, 0, 0, 0, 0, 0,
+	})
+	res := m.Im2Col(3, 2)
+
+	if !res.Equals(a) {
+		t.Error("not same")
+		t.Log(res)
 	}
 }

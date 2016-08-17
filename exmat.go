@@ -1,22 +1,15 @@
 package exmat
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/gonum/matrix/mat64"
 	"math"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
-)
 
-// PadMode is flag for padding mode.
-type PadMode int
-
-const (
-	// Zero is zero padding flag.
-	Zero = iota + 1
-	// Edge is edge padding flag.
-	Edge
+	"github.com/gonum/matrix/mat64"
 )
 
 // PoolingMode is flag for pooling.
@@ -65,6 +58,19 @@ func Zeros(r, c int) *ExMat {
 	return NewExMat(r, c, res)
 }
 
+func (emat *ExMat) String() string {
+	var w bytes.Buffer
+	r, c := emat.Dims()
+	for i := 0; i < r; i++ {
+		for j := 0; j < c; j++ {
+			w.WriteString(strconv.FormatFloat(emat.At(i, j), 'f', 4, 64))
+			w.WriteString(" ")
+		}
+		w.WriteString("\n")
+	}
+	return w.String()
+}
+
 func cmp(a, b []float64, resCh chan bool) {
 	for i := range a {
 		if a[i] != b[i] {
@@ -74,6 +80,7 @@ func cmp(a, b []float64, resCh chan bool) {
 	resCh <- true
 }
 
+// Equals compares ExMat.
 func (emat *ExMat) Equals(t *ExMat) bool {
 	rs, cs := emat.Dims()
 	rt, ct := t.Dims()
@@ -173,14 +180,15 @@ func (emat *ExMat) Pooling(k, s int, mode PoolingMode, src *ExMat) {
 }
 
 func (emat *ExMat) flatten(res []float64, y int, wg *sync.WaitGroup) {
-	r, c := emat.Dims()
+	_, c := emat.Dims()
 	for x := 0; x < c; x++ {
 		res[y*c+x] = emat.At(y, x)
 	}
 	wg.Done()
 }
 
-func (emat *ExMat) Flatten() mat64.Matrix {
+// Flatten makes flat ExMat.
+func (emat *ExMat) Flatten() *ExMat {
 	r, c := emat.Dims()
 	res := make([]float64, r*c)
 	var wg sync.WaitGroup
@@ -189,7 +197,7 @@ func (emat *ExMat) Flatten() mat64.Matrix {
 		go emat.flatten(res, y, &wg)
 	}
 	wg.Wait()
-	return mat64.NewDense(1, r*c, res)
+	return NewExMat(1, r*c, res)
 }
 
 func (emat *ExMat) edgePad(rows, cols, newRows, newCols int, newMatrix []float64, w, y int, wg *sync.WaitGroup) {
@@ -217,8 +225,9 @@ func (emat *ExMat) edgePad(rows, cols, newRows, newCols int, newMatrix []float64
 	wg.Done()
 }
 
-func (emat *ExMat) EdgePadding(w int, src *ExMat) {
-	r, c := src.Dims()
+// EdgePadding pads ExMat.
+func (emat *ExMat) EdgePadding(w int) *ExMat {
+	r, c := emat.Dims()
 	newRows := r + w*2
 	newCols := c + w*2
 	newMatrix := make([]float64, newRows*newCols)
@@ -228,132 +237,36 @@ func (emat *ExMat) EdgePadding(w int, src *ExMat) {
 		go emat.edgePad(r, c, newRows, newCols, newMatrix, w, y, &wg)
 	}
 	wg.Wait()
-	emat.Dense = mat64.NewDense(newRows, newCols, newMatrix)
+	return NewExMat(newRows, newCols, newMatrix)
 }
 
-func (emat *ExMat) Im2Col(k, s int) Matrix {
+func (emat *ExMat) makeCol(k, s, y, cols, sIdx int, res []float64, wg *sync.WaitGroup) {
+	for x := 0; x < cols; x++ {
+		part := emat.View(y*s, x*s, k, k).(*mat64.Dense)
+		for i := 0; i < k; i++ {
+			for j := 0; j < k; j++ {
+				res[sIdx] = part.At(i, j)
+				sIdx++
+			}
+		}
+	}
+	wg.Done()
+}
+
+// Im2Col make col matrix of ExMat.
+func (emat *ExMat) Im2Col(k, s int) *ExMat {
 	colSize := k * k
 	r, c := emat.Dims()
 	rows := (r-k)/s + 1
 	cols := (c-k)/s + 1
-	for y := 0; y < rows; y++ {
-		for x := 0; x < cols; x++ {
-			sy := y * s
-			sx := x * s
-			part := emat.View(sy, sx, k, k).(*mat64.Dense)
-			var partExMat ExMat
-			partExMat.Dense = part
-			flat := partExMat.Flatten()
-		}
-	}
-}
-
-// Matrix is object for matrix.
-type Matrix struct {
-	Rows uint
-	Cols uint
-	M    [][]float32
-}
-
-// Dot calculate dot of two vector.
-func Dot(v1, v2 []float32) (float32, error) {
-	if len(v1) != len(v2) {
-		return 0.0, fmt.Errorf("Length mismatched %d, %d\n", len(v1), len(v2))
-	}
-	sum := float32(0.0)
-	for i := 0; i < len(v1); i++ {
-		sum += v1[i] * v2[i]
-	}
-	return sum, nil
-}
-
-// Dot2d calculate dot of a matrix.
-func Dot2d(m1, m2 [][]float32) (float32, error) {
-	sum := float32(0.0)
-	for i := 0; i < len(m1); i++ {
-		partial, err := Dot(m1[i], m2[i])
-		if err != nil {
-			return 0.0, err
-		}
-		sum += partial
-	}
-	return sum, nil
-}
-
-// Slice2d slices a matrix.
-func Slice2d(s [][]float32, rs, re, cs, ce uint) [][]float32 {
-	sr := make([][]float32, re-rs)
-	copy(sr, s[rs:re])
-	for y := 0; y < len(sr); y++ {
-		sr[y] = sr[y][cs:ce]
-	}
-	return sr
-}
-
-func (m *Matrix) execConv(newMat [][]float32, f *Matrix, y int, cols, rows, stride uint, errCh chan error) {
-	newMat[y] = make([]float32, cols)
-	var err error
-	for x := 0; x < int(cols); x++ {
-		newMat[y][x], err = Dot2d(Slice2d(m.M, uint(y)*stride, uint(y)*stride+f.Rows, uint(x)*stride, uint(x)*stride+f.Cols), f.M)
-		if err != nil {
-			errCh <- err
-		}
-	}
-	errCh <- nil
-}
-
-// Convolve2d convolve a 2d matrix.
-func (m *Matrix) Convolve2d(f *Matrix, stride, pad uint, mode PadMode) (*Matrix, error) {
-	rows := (m.Rows-f.Rows+2*pad)/stride + 1
-	cols := (m.Cols-f.Rows+2*pad)/stride + 1
-	if pad > 0 {
-		m = m.Pad(pad, mode)
-	}
-	newMat := make([][]float32, rows)
-	errCh := make(chan error, cols)
-	for y := 0; y < int(rows); y++ {
-		go m.execConv(newMat, f, y, cols, rows, stride, errCh)
-	}
-
-	for i := 0; i < int(rows); i++ {
-		err := <-errCh
-		if err != nil {
-			return nil, err
-		}
-	}
-	close(errCh)
-	return NewMatrix(newMat), nil
-}
-
-func (m *Matrix) t(newMat [][]float32, y int, wg *sync.WaitGroup) {
-	col := make([]float32, m.Rows)
-	for x := 0; x < int(m.Rows); x++ {
-		col[x] = m.M[x][y]
-	}
-	newMat[y] = col
-	wg.Done()
-}
-
-func makeCol(m [][]float32, colSize, rs, cs, kernelSize uint) []float32 {
-	col := make([]float32, colSize)
+	res := make([]float64, colSize*rows*cols)
 	idx := 0
-	for y := rs; y < rs+kernelSize; y++ {
-		for x := cs; x < cs+kernelSize; x++ {
-			col[idx] = m[y][x]
-			idx++
-		}
+	var wg sync.WaitGroup
+	for y := 0; y < rows; y++ {
+		wg.Add(1)
+		go emat.makeCol(k, s, y, cols, idx, res, &wg)
+		idx += colSize * cols
 	}
-	return col
-}
-
-// Im2Col make clumns matrix from matrix.
-func (m *Matrix) Im2Col(kernelSize, stride uint) *Matrix {
-	colSize := kernelSize * kernelSize
-	var res [][]float32
-	for y := 0; y < int(m.Rows-kernelSize+1); y += int(stride) {
-		for x := 0; x < int(m.Cols-kernelSize+1); x += int(stride) {
-			res = append(res, makeCol(m.M, colSize, uint(y), uint(x), kernelSize))
-		}
-	}
-	return NewMatrix(res)
+	wg.Wait()
+	return NewExMat(rows*cols, colSize, res)
 }
