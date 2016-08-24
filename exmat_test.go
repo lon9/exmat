@@ -71,7 +71,7 @@ func TestReshape(t *testing.T) {
 	}
 }
 
-func TestPooling(t *testing.T) {
+func TestPooling1(t *testing.T) {
 	m := NewExMat(4, 4, []float64{
 		12, 20, 30, 0,
 		8, 12, 2, 0,
@@ -105,6 +105,51 @@ func TestPooling(t *testing.T) {
 		t.Error("Not same")
 		t.Log(res2)
 	}
+}
+
+func TestPooling2(t *testing.T) {
+	m := NewExMat(5, 5, []float64{
+		12, 20, 30, 0, 5,
+		8, 12, 2, 0, 6,
+		34, 70, 37, 4, 7,
+		112, 100, 25, 12, 8,
+		32, 64, 22, 100, 55,
+	})
+	ans := NewExMat(3, 3, []float64{
+		12, 30, 5,
+		34, 70, 7,
+		112, 100, 100,
+	})
+
+	t.Log("Test for max pooling.")
+	var res ExMat
+	res.Pooling(2, 2, Max, m)
+
+	if !res.Equals(ans) {
+		t.Error("Not same")
+		t.Log(res.String())
+	}
+}
+
+func TestZeroPad(t *testing.T) {
+	m1 := NewExMat(3, 4, []float64{
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+	})
+	ans := NewExMat(5, 6, []float64{
+		0, 0, 0, 0, 0, 0,
+		0, 1, 1, 1, 1, 0,
+		0, 1, 1, 1, 1, 0,
+		0, 1, 1, 1, 1, 0,
+		0, 0, 0, 0, 0, 0,
+	})
+	res := m1.ZeroPadding(1)
+	if !res.Equals(ans) {
+		t.Error("not same")
+		t.Log(res)
+	}
+
 }
 
 func TestEdgePad(t *testing.T) {

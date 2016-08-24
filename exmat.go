@@ -172,6 +172,7 @@ func (emat *ExMat) Pooling(k, s int, mode PoolingMode, src *ExMat) {
 	if (rs-k)%s != 0 {
 		padded := src.Grow(1, 1)
 		src.Dense = padded.(*mat64.Dense)
+		fmt.Println(src.String())
 	}
 	newMat := make([]float64, rows*cols)
 	var wg sync.WaitGroup
@@ -229,7 +230,7 @@ func (emat *ExMat) edgePad(rows, cols, newRows, newCols int, newMatrix []float64
 	wg.Done()
 }
 
-// EdgePadding pads ExMat.
+// EdgePadding pads ExMat with edge's value.
 func (emat *ExMat) EdgePadding(w int) *ExMat {
 	r, c := emat.Dims()
 	newRows := r + w*2
@@ -239,6 +240,32 @@ func (emat *ExMat) EdgePadding(w int) *ExMat {
 	for y := 0; y < newRows; y++ {
 		wg.Add(1)
 		go emat.edgePad(r, c, newRows, newCols, newMatrix, w, y, &wg)
+	}
+	wg.Wait()
+	return NewExMat(newRows, newCols, newMatrix)
+}
+
+func (emat *ExMat) zeroPad(rows, cols, newRows, newCols int, newMatrix []float64, w, y int, wg *sync.WaitGroup) {
+	for x := 0; x < newCols; x++ {
+		if y > w-1 && y < rows+w && x > w-1 && x < cols+w {
+			newMatrix[y*newCols+x] = emat.At(y-w, x-w)
+		} else {
+			newMatrix[y*newCols+x] = 0.0
+		}
+	}
+	wg.Done()
+}
+
+// ZeroPadding pads ExMat with zero.
+func (emat *ExMat) ZeroPadding(w int) *ExMat {
+	r, c := emat.Dims()
+	newRows := r + w*2
+	newCols := c + w*2
+	newMatrix := make([]float64, newRows*newCols)
+	var wg sync.WaitGroup
+	for y := 0; y < newRows; y++ {
+		wg.Add(1)
+		go emat.zeroPad(r, c, newRows, newCols, newMatrix, w, y, &wg)
 	}
 	wg.Wait()
 	return NewExMat(newRows, newCols, newMatrix)
