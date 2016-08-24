@@ -170,9 +170,7 @@ func (emat *ExMat) Pooling(k, s int, mode PoolingMode, src *ExMat) {
 	rows := int(math.Ceil(float64(rs-k)/float64(s))) + 1
 	cols := int(math.Ceil(float64(cs-k)/float64(s))) + 1
 	if (rs-k)%s != 0 {
-		padded := src.Grow(1, 1)
-		src.Dense = padded.(*mat64.Dense)
-		fmt.Println(src.String())
+		src = src.ZeroPadding(1)
 	}
 	newMat := make([]float64, rows*cols)
 	var wg sync.WaitGroup
