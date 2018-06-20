@@ -1,3 +1,0 @@
-package: github.com/Rompei/exmat
-import:
-- package: github.com/gonum/matrix
