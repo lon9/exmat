@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gonum/matrix/mat64"
+	"gonum.org/v1/gonum/mat"
 )
 
 // PoolingMode is flag for pooling.
@@ -24,18 +24,18 @@ const (
 
 // ExMat is extented Matrix of gonum/matrix
 type ExMat struct {
-	*mat64.Dense
+	*mat.Dense
 }
 
 // NewExMat is constructor
 func NewExMat(r, c int, src []float64) *ExMat {
 	return &ExMat{
-		mat64.NewDense(r, c, src),
+		mat.NewDense(r, c, src),
 	}
 }
 
-// NewExMatFromDense make ExMat from mat64.Dense
-func NewExMatFromDense(dense *mat64.Dense) *ExMat {
+// NewExMatFromDense make ExMat from mat.Dense
+func NewExMatFromDense(dense *mat.Dense) *ExMat {
 	return &ExMat{
 		dense,
 	}
@@ -138,22 +138,24 @@ func (emat *ExMat) Reshape(r, c int, src *ExMat) (err error) {
 			col++
 		}
 	}
-	emat.Dense = mat64.NewDense(r, c, newMat)
+	emat.Dense = mat.NewDense(r, c, newMat)
 	return
 }
 
-func maxPool(m mat64.Matrix) float64 {
-	return mat64.Max(m)
+func maxPool(m mat.Matrix) float64 {
+	return mat.Max(m)
 }
 
-func avgPool(m mat64.Matrix) float64 {
+func avgPool(m mat.Matrix) float64 {
 	r, c := m.Dims()
-	return mat64.Sum(m) / float64(r*c)
+	return mat.Sum(m) / float64(r*c)
 }
 
 func (emat *ExMat) execPool(newMat []float64, y, rows, cols, k, s int, mode PoolingMode, wg *sync.WaitGroup) {
 	for x := 0; x < cols; x++ {
-		part := emat.View(y*s, x*s, k, k)
+		startY := y * s
+		startX := x * s
+		part := emat.Slice(startY, startY+k, startX, startX+k)
 		switch mode {
 		case Max:
 			newMat[y*cols+x] = maxPool(part)
@@ -179,7 +181,7 @@ func (emat *ExMat) Pooling(k, s int, mode PoolingMode, src *ExMat) {
 		go src.execPool(newMat, y, rows, cols, k, s, mode, &wg)
 	}
 	wg.Wait()
-	emat.Dense = mat64.NewDense(rows, cols, newMat)
+	emat.Dense = mat.NewDense(rows, cols, newMat)
 }
 
 func (emat *ExMat) flatten(res []float64, y int, wg *sync.WaitGroup) {
@@ -271,7 +273,9 @@ func (emat *ExMat) ZeroPadding(w int) *ExMat {
 
 func (emat *ExMat) makeCol(k, s, y, cols, sIdx int, res []float64, wg *sync.WaitGroup) {
 	for x := 0; x < cols; x++ {
-		part := emat.View(y*s, x*s, k, k).(*mat64.Dense)
+		startY := y * s
+		startX := x * s
+		part := emat.Slice(startY, startY+k, startX, startX+k).(*mat.Dense)
 		for i := 0; i < k; i++ {
 			for j := 0; j < k; j++ {
 				res[sIdx] = part.At(i, j)
@@ -311,7 +315,7 @@ func (emat *ExMat) Convolve2d(s int, f *ExMat) (err error) {
 	cols := (c-fc)/s + 1
 	in := emat.Im2Col(fr, s)
 	flat := f.Flatten()
-	var out mat64.Dense
+	var out mat.Dense
 	out.Mul(flat, in.T())
 	exOut := NewExMatFromDense(&out)
 	if err = emat.Reshape(rows, cols, exOut); err != nil {

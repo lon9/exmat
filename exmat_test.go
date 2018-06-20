@@ -94,7 +94,7 @@ func TestPooling1(t *testing.T) {
 
 	if !res1.Equals(ans1) {
 		t.Error("Not same")
-		t.Log(res1)
+		t.Log(res1.String())
 	}
 
 	t.Log("Test for average pooling.")
@@ -103,7 +103,7 @@ func TestPooling1(t *testing.T) {
 
 	if !res2.Equals(ans2) {
 		t.Error("Not same")
-		t.Log(res2)
+		t.Log(res2.String())
 	}
 }
 
