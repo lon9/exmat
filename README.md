@@ -1,8 +1,8 @@
 # ExMat
 
-[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/Rompei/exmat)
+[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/lon9/exmat)
 
-Extended library of [gonum/matrix](https://github.com/gonum/matrix)
+Extended library of [gonum/mat](https://github.com/gonum)
 
 ## Under construction
 
